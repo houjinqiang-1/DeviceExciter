@@ -40,7 +40,7 @@ signals:
     void Msignals_updateValue(const int periUp); //发送更新周期频率信号
 
     //接收信号
-    void Msignals_openRequested(const QString &portName, qint32 baudRate); //打开接收端口信号
+    void Msignals_openRequested(const QString &sendPortName, qint32 baudRate); //打开接收端口信号
     void Msignals_closeRequested(); //关闭接收端口信号
 
 private slots:

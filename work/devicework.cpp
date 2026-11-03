@@ -5,7 +5,6 @@
 
 namespace {
 const QString kReceivePortName = QStringLiteral("COM5");
-constexpr qint32 kReceiveBaudRate = 115200;
 }
 
 DeviceWork::DeviceWork(QObject *parent)
@@ -120,7 +119,7 @@ void DeviceWork::Wslots_start(const QString &sendPortName, qint32 baudRate)
     if (!receivePort->isOpen())
     {
         receivePort->setPortName(kReceivePortName);
-        receivePort->setBaudRate(kReceiveBaudRate);
+        receivePort->setBaudRate(baudRate);
         receivePort->setDataBits(QSerialPort::Data8);
         receivePort->setStopBits(QSerialPort::OneStop);
         receivePort->setParity(QSerialPort::NoParity);
