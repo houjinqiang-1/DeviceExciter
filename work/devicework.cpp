@@ -2,20 +2,19 @@
 #include "icd.h"
 #include <QDebug>
 #include <QDateTime>
+
+namespace {
+const QString kReceivePortName = QStringLiteral("COM5");
+constexpr qint32 kReceiveBaudRate = 115200;
+}
+
 DeviceWork::DeviceWork(QObject *parent)
     : QObject{parent}
 {
-
-
 }
 
-void DeviceWork::init()
+void DeviceWork::Wslots_init()
 {
-    //周期发送
-    tw_timer = new QTimer(this);
-    tw_timer->setInterval(1000);
-    connect(tw_timer,&QTimer::timeout,this,&DeviceWork::OncePeriod,Qt::DirectConnection);
-
     //初始化串口 TODO 可注释
     sendPort = new QSerialPort(this);      // 关键：在 worker 线程里创建
     sendPort->setPortName(QStringLiteral("COM2"));
@@ -25,28 +24,29 @@ void DeviceWork::init()
     sendPort->setParity(QSerialPort::NoParity);
 
     if (!sendPort->open(QIODevice::ReadWrite))
-        emit errorOccurred(sendPort->errorString());
+        emit Wsignals_errorOccurred(sendPort->errorString());
 
 }
 
-void DeviceWork::startPeriod()
+void DeviceWork::Wslots_startPeriod()
 {
     tw_timer->start();
-    emit periodLamp(true);
+    emit Wsignals_periodLamp(true);
 }
 
-void DeviceWork::OncePeriod()
+void DeviceWork::Wslots_OncePeriod()
 {
-    //可直接替换为写串口
+    if (!sendPort || !sendPort->isOpen())
+        return;                 // 发送口没开，直接忽略
     sendPort->write(sendArray);
 }
 
-void DeviceWork::UpdatePeriod(const int periUp)
+void DeviceWork::Wslots_UpdatePeriod(const int periUp)
 {
     tw_timer->setInterval(periUp); //在运行中本身就可以暂停再运行
 }
 
-void DeviceWork::updateArray(const sendParamters &udp)
+void DeviceWork::Wslots_updateArray(const sendParamters &udp)
 {
     const QByteArray loadCopy(reinterpret_cast<const char *>(&udp),
                              static_cast<int>(sizeof(sendParamters)));
@@ -72,7 +72,7 @@ void DeviceWork::publishStats(bool force)
     if (!force && m_statsTimer.elapsed() < 200)   // 状态类：最多 5 次/秒
         return;
     m_statsTimer.restart();
-    emit statisticsChanged(m_okFrames, m_rejectedFrames,
+    emit Wsignals_statisticsChanged(m_okFrames, m_rejectedFrames,
                            m_droppedBytes, static_cast<quint8>(m_lastReason));// 重新计时，避免上一条的定时器把新消息提前藏掉
 }
 
@@ -85,7 +85,7 @@ void DeviceWork::reject(RejectReason reason)
     publishStats(true);        // 拒绝是事件：立即上报
 }
 
-void DeviceWork::onReadyRead()
+void DeviceWork::Wslots_onReadyRead()
 {
     const QByteArray data = receivePort->readAll();
     if (data.isEmpty())
@@ -101,35 +101,63 @@ void DeviceWork::onReadyRead()
     parseFrames();
 }
 
-void DeviceWork::start(const QString &portName, qint32 baudRate)
+void DeviceWork::Wslots_start(const QString &sendPortName, qint32 baudRate)
 {
-    if (receivePort && receivePort->isOpen())          // 串口已打开就立即发送信号
+    // 两个口都已打开：只回报状态
+    if (receivePort && receivePort->isOpen() && sendPort && sendPort->isOpen())
     {
-        emit portStateChanged(true, receivePort->portName());
+        emit Wsignals_portStateChanged(true, QStringLiteral("%1 收 / %2 发")
+                                        .arg(kReceivePortName, sendPort->portName()));
         return;
     }
 
-    if (!receivePort)                  // 创建接收对象，并且有参数就执行槽函数
+    // ---------- ① 接收口：固定 COM5 ----------
+    if (!receivePort)
     {
         receivePort = new QSerialPort(this);
-        connect(receivePort, &QSerialPort::readyRead, this, &DeviceWork::onReadyRead);
+        connect(receivePort, &QSerialPort::readyRead, this, &DeviceWork::Wslots_onReadyRead);
     }
-
-    receivePort->setPortName(portName);
-    receivePort->setBaudRate(baudRate);
-    receivePort->setDataBits(QSerialPort::Data8);
-    receivePort->setStopBits(QSerialPort::OneStop);
-    receivePort->setParity(QSerialPort::NoParity);
-    receivePort->setFlowControl(QSerialPort::NoFlowControl);
-
-    if (!receivePort->open(QIODevice::ReadWrite))
+    if (!receivePort->isOpen())
     {
-        emit errorOccurred(receivePort->errorString());
-        emit portStateChanged(false, QString());
-        return;
+        receivePort->setPortName(kReceivePortName);
+        receivePort->setBaudRate(kReceiveBaudRate);
+        receivePort->setDataBits(QSerialPort::Data8);
+        receivePort->setStopBits(QSerialPort::OneStop);
+        receivePort->setParity(QSerialPort::NoParity);
+        receivePort->setFlowControl(QSerialPort::NoFlowControl);
+
+        if (!receivePort->open(QIODevice::ReadOnly))
+        {
+            emit Wsignals_errorOccurred(QStringLiteral("接收口 %1 打开失败：%2")
+                                   .arg(kReceivePortName, receivePort->errorString()));
+            emit Wsignals_portStateChanged(false, QString());
+            return;
+        }
     }
 
-    // 新会话从干净状态开始
+    // ---------- ② 发送口：由界面下拉框决定 ----------
+    if (!sendPort)
+        sendPort = new QSerialPort(this);
+    if (!sendPort->isOpen())
+    {
+        sendPort->setPortName(sendPortName);
+        sendPort->setBaudRate(baudRate);
+        sendPort->setDataBits(QSerialPort::Data8);
+        sendPort->setStopBits(QSerialPort::OneStop);
+        sendPort->setParity(QSerialPort::NoParity);
+        sendPort->setFlowControl(QSerialPort::NoFlowControl);
+
+        if (!sendPort->open(QIODevice::ReadWrite))
+        {
+            emit Wsignals_errorOccurred(QStringLiteral("发送口 %1 打开失败：%2")
+                                   .arg(sendPortName, sendPort->errorString()));
+            receivePort->close();          // 回滚，不留"半个会话"
+            emit Wsignals_portStateChanged(false, QString());
+            return;
+        }
+    }
+
+    // ---------- ③ 新会话：计数清零 ----------
     ringb.clear();
     m_okFrames = 0;
     m_rejectedFrames = 0;
@@ -138,15 +166,18 @@ void DeviceWork::start(const QString &portName, qint32 baudRate)
     m_statsTimer.start();
     publishStats(true);
 
-    emit portStateChanged(true, portName);
+    emit Wsignals_portStateChanged(true, QStringLiteral("%1 收 / %2 发")
+                                    .arg(kReceivePortName, sendPortName));
 }
 
-void DeviceWork::stop()
+void DeviceWork::Wslots_stop()
 {
     if (receivePort && receivePort->isOpen())
         receivePort->close();
+    if (sendPort && sendPort->isOpen())
+        sendPort->close();
     ringb.clear();
-    emit portStateChanged(false, QString());
+    emit Wsignals_portStateChanged(false, QString());
 }
 
 
@@ -193,14 +224,14 @@ void DeviceWork::parseFrames()
 
         ++m_okFrames;
         publishStats();
-        emit frameReceived(QDateTime::currentDateTime(), payload);
+        emit Wsignals_frameReceived(QDateTime::currentDateTime(), payload);
     }
 }
 
-void DeviceWork::workPeriodStop()
+void DeviceWork::Wslots_workPeriodStop()
 {
     tw_timer->stop();
-    emit periodLamp(false);
+    emit Wsignals_periodLamp(false);
 }
 
 

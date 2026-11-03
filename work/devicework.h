@@ -4,9 +4,10 @@
 #include <QObject>
 #include <QByteArray>
 #include <QTimer>
+#include <QSerialPort>
+#include <QElapsedTimer>
 
 #include "ringbuffer.h"
-#include "serialportset.h"
 #include "icd.h"
 
 class DeviceWork : public QObject
@@ -16,34 +17,34 @@ public:
     explicit DeviceWork(QObject *parent = nullptr);
 public slots:
     //初始化Qtimer、发送串口
-    void init();
+    void Wslots_init();
     //去掉参数
-    void startPeriod();
+    void Wslots_startPeriod();
     //去掉参数
-    void OncePeriod();
+    void Wslots_OncePeriod();
     // void RceiveByte(const QByteArray &bytea);
-    void workPeriodStop();
+    void Wslots_workPeriodStop();
 
-    void UpdatePeriod(const int periUp);
+    void Wslots_UpdatePeriod(const int periUp);
     //更新参数
-    void updateArray(const sendParamters &sdp);
+    void Wslots_updateArray(const sendParamters &sdp);
 
     //MainWindow 发 openRequested 时打开串口
-    void start(const QString &portName, qint32 baudRate);
+    void Wslots_start(const QString &portName, qint32 baudRate);
     //MainWindow 发 closeRequested 时关闭串口
-    void stop();
-    void onReadyRead();
+    void Wslots_stop();
+    void Wslots_onReadyRead();
 
 signals:
     //指示灯信号
-    void periodLamp(bool onLamp);
+    void Wsignals_periodLamp(bool onLamp);
 
     //成功解析出一帧之后收到一帧
-    void frameReceived(const QDateTime &recvTime, const QByteArray &payload);
+    void Wsignals_frameReceived(const QDateTime &recvTime, const QByteArray &payload);
     //打开端口失败
-    void errorOccurred(const QString &message);
-    void portStateChanged(bool open, const QString &portName);
-    void statisticsChanged(quint64 okFrames, quint64 rejectedFrames,
+    void Wsignals_errorOccurred(const QString &message);
+    void Wsignals_portStateChanged(bool open, const QString &portName);
+    void Wsignals_statisticsChanged(quint64 okFrames, quint64 rejectedFrames,
                            quint64 droppedBytes, quint8 lastReason);
 
 public:

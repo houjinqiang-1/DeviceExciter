@@ -1,4 +1,7 @@
 QT += widgets serialport
+
+msvc: QMAKE_CXXFLAGS += /utf-8
+
 CONFIG += c++17
 
 # You can make your code fail to compile if it uses deprecated APIs.

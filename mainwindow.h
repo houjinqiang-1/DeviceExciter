@@ -34,35 +34,35 @@ public:
 
 signals:
     //发送信号
-    void Msingals_inforPSend();  //发送周期发送信号
-    void Msingals_inforTSend();  //发送触发发送信号
-    void Msingals_updateArray(const sendParamters &sdp); //发送更新后数值结构体信号
-    void Msingals_updateValue(const int periUp); //发送更新周期频率信号
+    void Msignals_inforPSend();  //发送周期发送信号
+    void Msignals_inforTSend();  //发送触发发送信号
+    void Msignals_updateArray(const sendParamters &sdp); //发送更新后数值结构体信号
+    void Msignals_updateValue(const int periUp); //发送更新周期频率信号
 
     //接收信号
-    void Msingals_openRequested(const QString &portName, qint32 baudRate); //打开接收端口信号
-    void Msingals_closeRequested(); //关闭接收端口信号
+    void Msignals_openRequested(const QString &portName, qint32 baudRate); //打开接收端口信号
+    void Msignals_closeRequested(); //关闭接收端口信号
 
 private slots:
     void Mslots_on_PStart_clicked();
-    void on_TriggerStart_clicked();
-    void setPeriodLamp(bool onLamp);
-    void on_PUpdate_clicked();
-    void on_pushButton_clicked();
+    void Mslots_on_TriggerStart_clicked();
+    void Mslots_setPeriodLamp(bool onLamp);
+    void Mslots_on_PUpdate_clicked();
+    void Mslots_on_pushButton_clicked();
 
 
 
     void Mslots_refreshPorts();//刷新端口列表，程序启动时、每次点"打开"前
 
-    void onOpenClicked();
+    void Mslots_onOpenClicked();
     //点"打开/关闭串口"按钮
-    void onFrameReceived(const QDateTime &recvTime, const QByteArray &payload);
+    void Mslots_onFrameReceived(const QDateTime &recvTime, const QByteArray &payload);
     //收到一帧（Worker解析完一帧之后）
-    void onSerialError(const QString &message);
+    void Mslots_onSerialError(const QString &message);
     //打开端口失败
-    void onPortStateChanged(bool open, const QString &portName);
+    void Mslots_onPortStateChanged(bool open, const QString &portName);
     //端口状态灯变化
-    void onStatisticsChanged(quint64 okFrames, quint64 rejectedFrames,
+    void Mslots_onStatisticsChanged(quint64 okFrames, quint64 rejectedFrames,
                              quint64 droppedBytes, quint8 lastReason);  //lastreason 最近一次拒绝的原因
     //有效、拒绝、丢弃的计数统计变化（刷新状态栏）
 

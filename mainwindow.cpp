@@ -36,42 +36,42 @@ MainWindow::MainWindow(QWidget *parent)
     //移动到子线程
     m_towork->moveToThread(&m_thread);
     //初始化子线程定时任务
-    connect(&m_thread, &QThread::started, m_towork, &DeviceWork::init,Qt::QueuedConnection);
+    connect(&m_thread, &QThread::started, m_towork, &DeviceWork::Wslots_init,Qt::QueuedConnection);
 
     //将表格中的数据发送给子线程进行处理
     //发送周期处理信号
-    connect(this,&MainWindow::Msingals_inforPSend,m_towork,&DeviceWork::startPeriod,Qt::QueuedConnection);
+    connect(this,&MainWindow::Msignals_inforPSend,m_towork,&DeviceWork::Wslots_startPeriod,Qt::QueuedConnection);
     //发送触发处理信号
-    connect(this,&MainWindow::Msingals_inforTSend,m_towork,&DeviceWork::OncePeriod,Qt::QueuedConnection);
+    connect(this,&MainWindow::Msignals_inforTSend,m_towork,&DeviceWork::Wslots_OncePeriod,Qt::QueuedConnection);
 
     //发送停止信号
-    connect(ui->PStop,&QPushButton::clicked,m_towork,&DeviceWork::workPeriodStop,Qt::QueuedConnection);
+    connect(ui->PStop,&QPushButton::clicked,m_towork,&DeviceWork::Wslots_workPeriodStop,Qt::QueuedConnection);
     //灯 信号
-    connect(m_towork, &DeviceWork::periodLamp, this, &MainWindow::setPeriodLamp);
+    connect(m_towork, &DeviceWork::Wsignals_periodLamp, this, &MainWindow::Mslots_setPeriodLamp);
 
     //发送更新信号
     qRegisterMetaType<sendParamters>("sendParamters");
-    connect(this,&MainWindow::Msingals_updateArray,m_towork,&DeviceWork::updateArray);
+    connect(this,&MainWindow::Msignals_updateArray,m_towork,&DeviceWork::Wslots_updateArray);
 
     //更新定时任务周期值
     ui->spinBox->setValue(1000);
-    connect(this,&MainWindow::Msingals_updateValue,m_towork,&DeviceWork::UpdatePeriod);
+    connect(this,&MainWindow::Msignals_updateValue,m_towork,&DeviceWork::Wslots_UpdatePeriod);
 
     //任务结束销毁线程
     connect(&m_thread, &QThread::finished, m_towork, &QObject::deleteLater,Qt::DirectConnection);
 
     //打开串口
-    connect(this, &MainWindow::Msingals_openRequested,  m_towork, &DeviceWork::start);
+    connect(this, &MainWindow::Msignals_openRequested,  m_towork, &DeviceWork::Wslots_start);
     //关闭串口
-    connect(this, &MainWindow::Msingals_closeRequested, m_towork, &DeviceWork::stop);
+    connect(this, &MainWindow::Msignals_closeRequested, m_towork, &DeviceWork::Wslots_stop);
 
-    connect(m_towork, &DeviceWork::frameReceived,     this, &MainWindow::onFrameReceived);
-    connect(m_towork, &DeviceWork::errorOccurred,     this, &MainWindow::onSerialError);
-    connect(m_towork, &DeviceWork::portStateChanged,  this, &MainWindow::onPortStateChanged);
-    connect(m_towork, &DeviceWork::statisticsChanged, this, &MainWindow::onStatisticsChanged);
+    connect(m_towork, &DeviceWork::Wsignals_frameReceived,     this, &MainWindow::Mslots_onFrameReceived);
+    connect(m_towork, &DeviceWork::Wsignals_errorOccurred,     this, &MainWindow::Mslots_onSerialError);
+    connect(m_towork, &DeviceWork::Wsignals_portStateChanged,  this, &MainWindow::Mslots_onPortStateChanged);
+    connect(m_towork, &DeviceWork::Wsignals_statisticsChanged, this, &MainWindow::Mslots_onStatisticsChanged);
 
     m_thread.start();
-    on_pushButton_clicked();
+    Mslots_on_pushButton_clicked();
 
     // openSerialPort();
 }
@@ -106,7 +106,7 @@ void MainWindow::tableSet(int col, int row)
 
 }
 
-void MainWindow::on_pushButton_clicked()
+void MainWindow::Mslots_on_pushButton_clicked()
 {
     qDebug()<<"开始";
 
@@ -123,22 +123,22 @@ void MainWindow::on_pushButton_clicked()
     // sdp.leftsendpress = ui->TX->item(9,0)->text().toUInt();
     // sdp.rigthsendpress = ui->TX->item(2,0)->text().toUInt();
 
-    emit Msingals_updateArray(sdp);
+    emit Msignals_updateArray(sdp);
 
 }
 
-void MainWindow::on_PStart_clicked()
+void MainWindow::Mslots_on_PStart_clicked()
 {
-    emit Msingals_inforPSend();
+    emit Msignals_inforPSend();
 }
 
 
-void MainWindow::on_TriggerStart_clicked()
+void MainWindow::Mslots_on_TriggerStart_clicked()
 {
-    emit Msingals_inforTSend();
+    emit Msignals_inforTSend();
 }
 
-void MainWindow::setPeriodLamp(bool onLamp)
+void MainWindow::Mslots_setPeriodLamp(bool onLamp)
 {
     ui->label_3->setProperty("lit", onLamp);
     ui->label_3->style()->unpolish(ui->label_3);
@@ -146,14 +146,14 @@ void MainWindow::setPeriodLamp(bool onLamp)
 }
 
 
-void MainWindow::on_PUpdate_clicked()
+void MainWindow::Mslots_on_PUpdate_clicked()
 {
-    emit Msingals_updateValue(ui->spinBox->value());
+    emit Msignals_updateValue(ui->spinBox->value());
 }
 
 
 
-void MainWindow::onFrameReceived(const QDateTime &recvTime, const QByteArray &payload)
+void MainWindow::Mslots_onFrameReceived(const QDateTime &recvTime, const QByteArray &payload)
 {
     MSG_Struct msg;
     memcpy(&msg, payload.constData(), sizeof(MSG_Struct));
@@ -197,7 +197,9 @@ void MainWindow::buildUi()
     connect(m_noticeTimer, &QTimer::timeout, m_notice, &QLabel::hide);
 
     auto *topBar = new QHBoxLayout;
-    topBar->addWidget(new QLabel(QStringLiteral("端口:"), this));
+    topBar->addWidget(new QLabel(QStringLiteral("接收口: COM5"), this));
+    topBar->addSpacing(12);
+    topBar->addWidget(new QLabel(QStringLiteral("发送端口:"), this));
     topBar->addWidget(m_portCombo);
     topBar->addWidget(clearBtn);
     topBar->addSpacing(12);
@@ -214,17 +216,17 @@ void MainWindow::buildUi()
     // ui->gridLayout->addWidget(m_receiveView, 5, 0);
 
     setIndicator(false);      // 初始红
-    refreshPorts();
+    Mslots_refreshPorts();
 
     // topBar->addSpacing(16);
     // topBar->addWidget(m_saveChk);
-    connect(m_openBtn,   &QPushButton::clicked, this, &MainWindow::onOpenClicked);
+    connect(m_openBtn,   &QPushButton::clicked, this, &MainWindow::Mslots_onOpenClicked);
     connect(clearBtn, &QPushButton::clicked, ui->plainTextEdit, &QPlainTextEdit::clear);
 
 
 }
 
-void MainWindow::refreshPorts()
+void MainWindow::Mslots_refreshPorts()
 {
     const QString keep = m_portCombo->currentData().toString();
     m_portCombo->clear();
@@ -246,27 +248,27 @@ void MainWindow::setIndicator(bool open)
 }
 
 
-void MainWindow::onOpenClicked()
+void MainWindow::Mslots_onOpenClicked()
 {
 
     if (m_portOpen)
     {
-        emit Msingals_closeRequested();
+        emit Msignals_closeRequested();
         return;
     }
 
-    refreshPorts();
+    Mslots_refreshPorts();
     const QString port = m_portCombo->currentData().toString();
     if (port.isEmpty()) {
         statusBar()->showMessage(QStringLiteral("没有可用串口"));
         return;
     }
-    emit Msingals_openRequested(port, m_baudCombo->currentData().toInt());
+    emit Msignals_openRequested(port, m_baudCombo->currentData().toInt());
 }
 
 
 
-void MainWindow::onPortStateChanged(bool open, const QString &portName)
+void MainWindow::Mslots_onPortStateChanged(bool open, const QString &portName)
 {
     m_portOpen = open;
     m_openBtn->setText(open ? QStringLiteral("关闭串口") : QStringLiteral("打开串口"));
@@ -292,7 +294,7 @@ void MainWindow::showNotice(const QString &text, bool isError)
 
 
 
-void MainWindow::onStatisticsChanged(quint64 okFrames, quint64 rejectedFrames, quint64 droppedBytes, quint8 lastReason)
+void MainWindow::Mslots_onStatisticsChanged(quint64 okFrames, quint64 rejectedFrames, quint64 droppedBytes, quint8 lastReason)
 {
     QString reason;
     switch (static_cast<DeviceWork::RejectReason>(lastReason)) {
@@ -310,7 +312,7 @@ void MainWindow::onStatisticsChanged(quint64 okFrames, quint64 rejectedFrames, q
 
 
 
-void MainWindow::onSerialError(const QString &message)
+void MainWindow::Mslots_onSerialError(const QString &message)
 {
     showNotice(QStringLiteral("串口错误: ") + message);
 }
