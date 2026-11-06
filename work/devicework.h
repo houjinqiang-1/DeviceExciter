@@ -69,8 +69,9 @@ private:
     RingBuffer ringb;
     // SerialPortSet *portSet = nullptr;
     QTimer *tw_timer = nullptr;
-    QSerialPort *sendPort = nullptr;
-    QSerialPort *receivePort = nullptr;
+    QSerialPort *port = nullptr;
+    //QSerialPort *sendPort = nullptr;
+    //QSerialPort *receivePort = nullptr;
 
     quint64 m_okFrames = 0;
     quint64 m_rejectedFrames = 0;

@@ -49,6 +49,11 @@ MainWindow::MainWindow(QWidget *parent)
     //灯 信号
     connect(m_towork, &DeviceWork::Wsignals_periodLamp, this, &MainWindow::Mslots_setPeriodLamp);
 
+    connect(ui->TriggerStart, &QPushButton::clicked, this, &MainWindow::Mslots_on_TriggerStart_clicked);
+    connect(ui->PStart,       &QPushButton::clicked, this, &MainWindow::Mslots_on_PStart_clicked);
+    connect(ui->PUpdate,      &QPushButton::clicked, this, &MainWindow::Mslots_on_PUpdate_clicked);
+    connect(ui->pushButton,   &QPushButton::clicked, this, &MainWindow::Mslots_on_pushButton_clicked);
+
     //发送更新信号
     qRegisterMetaType<sendParamters>("sendParamters");
     connect(this,&MainWindow::Msignals_updateArray,m_towork,&DeviceWork::Wslots_updateArray);
@@ -197,9 +202,8 @@ void MainWindow::buildUi()
     connect(m_noticeTimer, &QTimer::timeout, m_notice, &QLabel::hide);
 
     auto *topBar = new QHBoxLayout;
-    topBar->addWidget(new QLabel(QStringLiteral("接收口: COM5"), this));
     topBar->addSpacing(12);
-    topBar->addWidget(new QLabel(QStringLiteral("发送端口:"), this));
+    topBar->addWidget(new QLabel(QStringLiteral("通信端口:"), this));
     topBar->addWidget(m_portCombo);
     topBar->addWidget(clearBtn);
     topBar->addSpacing(12);
