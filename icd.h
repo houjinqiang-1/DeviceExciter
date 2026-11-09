@@ -26,55 +26,6 @@ typedef struct
     uint8_t bit8:1;
 } faultcode2;
 
-// typedef struct
-// {
-//     uint16_t P1;     //左1油箱油量
-//     uint16_t P2;     //左2油箱油量
-//     uint16_t P3;     //右1油箱油量
-//     uint16_t P4;     //右2油箱油量
-//     uint16_t P5;     //左油箱油量
-//     uint16_t P6;     //右邮箱油量
-//     uint16_t P7;    //总油量
-//     int8_t P8;    //燃油温度
-//     uint8_t P9;     //燃油高温告警
-//     uint16_t P10;     //左供油管压力
-//     uint16_t P11;     //右供油管压力
-//     uint8_t P12;    //燃油温度
-//     uint8_t P13;     //燃油高温告警
-//     faultcode1 P14;
-//     faultcode2 P15;
-//     uint16_t P16;     //左1油箱油量
-//     uint16_t P17;     //左2油箱油量
-//     uint16_t P18;     //右1油箱油量
-//     uint16_t P19;     //右2油箱油量
-//     uint8_t reserve1;
-//     uint16_t P20;     //左油箱油量
-//     uint16_t P21;     //右邮箱油量
-//     uint16_t P22;    //总油量
-//     uint16_t P23;     //左1油箱油量
-//     uint16_t P24;     //左2油箱油量
-//     uint16_t P25;     //右1油箱油量
-//     uint16_t P26;     //右2油箱油量
-//     uint16_t P27;     //左油箱油量
-//     int16_t P28;     //右邮箱油量
-//     int16_t P29;    //总油量
-//     uint16_t P30;
-//     uint8_t P31;
-//     uint8_t P32;
-//     uint8_t P33;
-//     uint8_t reserve2;
-//     uint8_t reserve3;
-// }fuel_Struct;
-
-// typedef struct
-// {
-//     uint8_t frameHead1;
-//     uint8_t frameHead2;
-//     uint8_t frameSize;
-//     fuel_Struct dataBase;
-//     uint8_t check;
-// }MSG_Struct;
-
 typedef struct
 {
     uint16_t left1fuel;//左1油箱油量
@@ -116,48 +67,29 @@ typedef struct
 
 }sendParamters;
 
-
+// 接收报文数据区（20 字节）
 typedef struct
 {
-    uint16_t P1;     //左1油箱油量
-    uint16_t P2;     //左2油箱油量
-    uint16_t P3;     //右1油箱油量
-    uint16_t P4;     //右2油箱油量
-    uint16_t P5;     //左油箱油量
-    uint16_t P6;     //右邮箱油量
-    uint16_t P7;    //总油量
-    int8_t P8;    //燃油温度
-    uint8_t P9;     //燃油高温告警
-    uint16_t P10;     //左供油管压力
-    uint16_t P11;     //右供油管压力
-    uint8_t P12;    //燃油温度
-    uint8_t P13;     //燃油高温告警
-    faultcode1 P14;
-    faultcode2 P15;
-    uint16_t P16;     //左1油箱油量
-    uint16_t P17;     //左2油箱油量
-    uint16_t P18;     //右1油箱油量
-    uint16_t P19;     //右2油箱油量
-    uint8_t reserve1;
-    uint16_t P20;     //左油箱油量
-    uint16_t P21;     //右邮箱油量
-    uint16_t P22;    //总油量
-    uint16_t P23;     //左1油箱油量
-    uint16_t P24;     //左2油箱油量
-    uint16_t P25;     //右1油箱油量
-    uint16_t P26;     //右2油箱油量
-    uint16_t P27;     //左油箱油量
-    int16_t P28;     //右邮箱油量
-    int16_t P29;    //总油量
-    uint16_t P30;
-    uint8_t P31;
-    uint8_t P32;
-    uint8_t P33;
-    uint8_t reserve2;
-    uint8_t reserve3;
-    uint8_t check;
+    uint8_t  tempCalibration;      // 温度校准：0xAA 校准 / 0x00 不校准
+    uint8_t  tempSensorSelect;     // 温度校准传感器选择：0x01 左油箱温度传感器
+    uint8_t  tempGearSelect;       // 温度校准档位选择：0x01~0x06
+    int16_t  pitchAngle;           // 飞机俯仰角，0.1°/LSB，-90~90
+    int16_t  rollAngle;            // 飞机滚转角，0.1°/LSB，-180~180
+    int8_t   axialLoad;            // 轴向过载，0.1g，-10~10
+    int8_t   lateralLoad;          // 侧向过载，0.1g
+    int8_t   normalLoad;           // 法向过载，0.1g
+    uint8_t  wheelLoadSignal;      // 轮载信号：0x00 地面 / 0x01 空中
+    int16_t  zeroCalibrationCmd;   // 零校准指令：0x100F
+    int16_t  fullCalibrationCmd;   // 满校准指令：0x100F
+    uint8_t  fuelType;             // 油品信息：0x01~0x06
+    uint8_t  reserve1;             // 预留
+    uint8_t  reserve2;             // 预留
+    uint8_t  reserve3;             // 预留
+    uint8_t  reserve4;             // 预留
+} receiveParamters;
 
-} MSG_Struct;
+static_assert(sizeof(receiveParamters) == 20,
+              "receiveParamters 必须为 20 字节，与接收报文数据区一致");
 
 #pragma pack()
 

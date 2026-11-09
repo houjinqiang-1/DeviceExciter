@@ -150,10 +150,11 @@ void DeviceWork::Wslots_stop()
 
 void DeviceWork::parseFrames()
 {
-    constexpr quint8 kId        = 0x4F;
-    constexpr int    kFrameSize = 5 + sizeof(MSG_Struct);   // 66 = 0x42
+    constexpr int    kFrameSize = 3 + sizeof(receiveParamters) + 1;   // 2+1+20+1 = 24
+    constexpr int    kDataOffset = 3;
+    constexpr quint8 kFrameLenByte = kFrameSize;                      // 0x18
 
-    while (ringb.size() >= 4)        // 4 = 下面所有 peek 的最大(偏移+长度)
+    while (ringb.size() >= 4)          // 4 = 所有 peek 的(偏移+长度)最大值
     {
         quint8 header[2] = {0, 0};
         ringb.peek(header, 2, 0);
@@ -165,27 +166,36 @@ void DeviceWork::parseFrames()
             continue;
         }
 
+        // 接收帧没有识别符：偏移 2 直接是帧长度
         quint8 lenByte = 0;
-        quint8 idByte  = 0;
         ringb.peek(&lenByte, 1, 2);
-        ringb.peek(&idByte,  1, 3);
-
-        if (idByte != kId)          { reject(IdMismatch);     continue; }
-        if (lenByte != kFrameSize)  { reject(LengthMismatch); continue; }
+        if (lenByte != kFrameLenByte)
+        {
+            reject(LengthMismatch);
+            continue;
+        }
 
         if (ringb.size() < kFrameSize)
-            break;                    // 半包，等下一批
+            break;                     // 半包，等下一批
 
         const QByteArray frame = ringb.peekBytes(kFrameSize);
 
-        // 校验码 1 字节：累加范围/是否取反待 ICD 确认，暂不校验
-        constexpr bool kVerifyChecksum = false;
+        // 校验：整帧所有字节相加 % 256 == 0
+        constexpr bool kVerifyChecksum = true;
         if (kVerifyChecksum)
         {
-            // TODO: 待校验算法确定后实现
+            quint16 sum = 0;
+            for (int i = 0; i < kFrameSize; ++i)
+                sum = static_cast<quint16>(sum + static_cast<quint8>(frame.at(i)));
+
+            if ((sum % 256) != 0)
+            {
+                reject(ChecksumError);
+                continue;
+            }
         }
 
-        const QByteArray payload = frame.mid(4, sizeof(MSG_Struct));
+        const QByteArray payload = frame.mid(kDataOffset, sizeof(receiveParamters));
         ringb.discard(kFrameSize);
 
         ++m_okFrames;
