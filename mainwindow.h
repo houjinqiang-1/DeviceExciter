@@ -37,7 +37,7 @@ signals:
     //发送信号
     void Msignals_inforPSend();  //发送周期发送信号
     void Msignals_inforTSend();  //发送触发发送信号
-    void Msignals_updateArray(const sendParamters &sdp); //发送更新后数值结构体信号
+    void Msignals_updateArray(const QVector<double> &values); //发送更新后数值结构体信号
     void Msignals_updateValue(const int periUp); //发送更新周期频率信号
 
     //接收信号
@@ -55,22 +55,24 @@ private slots:
 
     void Mslots_refreshPorts();//刷新端口列表，程序启动时、每次点"打开"前
 
-    void Mslots_onOpenClicked();
-    //点"打开/关闭串口"按钮
-    void Mslots_onFrameReceived(const QDateTime &recvTime, const QByteArray &payload);
-    //收到一帧（Worker解析完一帧之后）
-    void Mslots_onSerialError(const QString &message);
-    //打开端口失败
-    void Mslots_onPortStateChanged(bool open, const QString &portName);
-    //端口状态灯变化
-    void Mslots_onStatisticsChanged(quint64 okFrames, quint64 rejectedFrames,
-                             quint64 droppedBytes, quint8 lastReason);  //lastreason 最近一次拒绝的原因
-    //有效、拒绝、丢弃的计数统计变化（刷新状态栏）
+    void Mslots_onOpenClicked(); //点"打开/关闭串口"按钮
 
+    void Mslots_onFrameReceived(const QDateTime &recvTime, const QByteArray &payload);//收到一帧（Worker解析完一帧之后）
+
+    void Mslots_onSerialError(const QString &message);  //打开端口失败
+
+    void Mslots_onPortStateChanged(bool open, const QString &portName); //端口状态灯变化
+
+    void Mslots_onStatisticsChanged(quint64 okFrames, quint64 rejectedFrames,//有效、拒绝、丢弃的计数统计变化（刷新状态栏）
+                             quint64 droppedBytes, quint8 lastReason);  //lastreason 最近一次拒绝的原因
+
+    void Mslots_updateRawData(const QStringList &values);
 private:
     Ui::MainWindow *ui;
 private:
-    void tableSet(int col, int row);
+    void tableSet(const QStringList &resolutions,
+                  const QStringList &offsets,
+                  const QStringList &ranges);
     void openSerialPort();
     void portReceive();
     void timeoutd();
@@ -101,6 +103,7 @@ public:
     QLabel *m_notice = nullptr; //提示条
     QTimer *m_noticeTimer = nullptr;    //提示定时器
     // QCheckBox *m_saveChk = nullptr; //是否接收数据到文件的勾选框
+    // fuel_sendParamters fuelSendP;
 
 };
 #endif // MAINWINDOW_H

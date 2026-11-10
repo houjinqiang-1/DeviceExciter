@@ -20,7 +20,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     //创建表
-    tableSet(5,9);
+    // tableSet(5,33);
     buildUi();
     //
     //控件显示
@@ -44,26 +44,23 @@ MainWindow::MainWindow(QWidget *parent)
     m_towork->moveToThread(&m_thread);
     //初始化子线程定时任务
     connect(&m_thread, &QThread::started, m_towork, &DeviceWork::Wslots_init,Qt::QueuedConnection);
-
     //将表格中的数据发送给子线程进行处理
     //发送周期处理信号
     connect(this,&MainWindow::Msignals_inforPSend,m_towork,&DeviceWork::Wslots_startPeriod,Qt::QueuedConnection);
     //发送触发处理信号
     connect(this,&MainWindow::Msignals_inforTSend,m_towork,&DeviceWork::Wslots_OncePeriod,Qt::QueuedConnection);
-
     //发送停止信号
     connect(ui->PStop,&QPushButton::clicked,m_towork,&DeviceWork::Wslots_workPeriodStop,Qt::QueuedConnection);
     //灯 信号
     connect(m_towork, &DeviceWork::Wsignals_periodLamp, this, &MainWindow::Mslots_setPeriodLamp);
-
     connect(ui->TriggerStart, &QPushButton::clicked, this, &MainWindow::Mslots_on_TriggerStart_clicked);
     connect(ui->PStart,       &QPushButton::clicked, this, &MainWindow::Mslots_on_PStart_clicked);
     connect(ui->PUpdate,      &QPushButton::clicked, this, &MainWindow::Mslots_on_PUpdate_clicked);
-    connect(ui->pushButton,   &QPushButton::clicked, this, &MainWindow::Mslots_on_pushButton_clicked);
+    connect(ui->updateParamter,   &QPushButton::clicked, this, &MainWindow::Mslots_on_pushButton_clicked);
 
     //发送更新信号
-    qRegisterMetaType<sendParamters>("sendParamters");
-    connect(this,&MainWindow::Msignals_updateArray,m_towork,&DeviceWork::Wslots_updateArray);
+    // qRegisterMetaType<sendParamters>("sendParamters");
+    connect(this,&MainWindow::Msignals_updateArray,m_towork,&DeviceWork::Wslots_updateArray,Qt::QueuedConnection);
 
     //更新定时任务周期值
     ui->spinBox->setValue(1000);
@@ -82,8 +79,14 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_towork, &DeviceWork::Wsignals_portStateChanged,  this, &MainWindow::Mslots_onPortStateChanged);
     connect(m_towork, &DeviceWork::Wsignals_statisticsChanged, this, &MainWindow::Mslots_onStatisticsChanged);
 
+    //更新表格中的下发原始值
+    connect(m_towork, &DeviceWork::WSignals_rawData, this, &MainWindow::Mslots_updateRawData);
+    //初始化创建表格
+    connect(m_towork, &DeviceWork::Wsignals_fuelFieldsReady,this, &MainWindow::tableSet,
+            Qt::QueuedConnection);
     m_thread.start();
-    Mslots_on_pushButton_clicked();
+    //初次先执行一次刷新
+    // Mslots_on_pushButton_clicked();
 
     // openSerialPort();
 }
@@ -97,46 +100,73 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-void MainWindow::tableSet(int col, int row)
+void MainWindow::tableSet(const QStringList &resolutions,
+                          const QStringList &offsets,
+                          const QStringList &ranges)
 {
-    ui->TX->setColumnCount(col);
-    ui->TX->setRowCount(row);
-    QStringList clHeads;
-    clHeads <<"工程值"<<"下发原始值"<<"偏移量"<<"工程值范围";
-    ui->TX->setHorizontalHeaderLabels(clHeads);
+    const int rowCount = static_cast<int>(std::size(kFuelFields));
+    ui->TX->setColumnCount(5);
+    ui->TX->setRowCount(rowCount);
 
+    QStringList clHeads;
+    clHeads <<"工程值"<<"下发原始值"<<"分辨率"<<"偏移量"<<"工程值范围";
+    ui->TX->setHorizontalHeaderLabels(clHeads);
     QStringList rowHeads;
     rowHeads<<"左1油箱油量"<<"左二邮箱油量"<<"右1邮箱油量"<<"右2油箱油量"<<"左邮箱油量"<<"右邮箱油量"
-             <<"总油量"<<"燃油温度"<<"燃油高温告警";
+             <<"总油量"<<"燃油温度"<<"燃油高温告警"<<"左供油管路压力信号"<<"右供油管路压力信号"
+             <<"左供油管路低压告警"<<"右供油管路低压告警"<<"故障字1"<<"故障字2"
+             <<"左1油箱油量传感器采样值"<<"左2油箱油量传感器采样值"<<"右1油箱油量传感器采样值"
+             <<"右2油箱油量传感器采样值"<<"左1油箱油量传感器零值"<<"左1油箱油量传感器满值"
+             <<"左2油箱油量传感器零值"<<"左2油箱油量传感器满值"<<"右1油箱油量传感器零值"
+             <<"右1油箱油量传感器满值"<<"右2油箱油量传感器零值"<<"右2油箱油量传感器满值"
+             <<"油面俯仰角"<<"油面横滚角"<<"温度传感器采样值"<<"软件版本信息"<<"全机校准信息反馈"
+             <<"温度校准信息反馈";
     ui->TX->setVerticalHeaderLabels(rowHeads);
 
-    for(int i=0;i<row;i++)
-    {
-        ui->TX->setItem(i,0,new QTableWidgetItem(QString("%1%2").arg(i).arg(1)));
+
+    for (int row = 0; row < rowCount; ++row) {
+        ui->TX->setItem(row, 0, new QTableWidgetItem(QString::number(row)));
+
+        const QString cells[] = {
+            resolutions.at(row),
+            offsets.at(row),
+            ranges.at(row)
+        };
+
+        for (int column = 2; column <= 4; ++column) {
+            auto *item = new QTableWidgetItem(cells[column - 2]);
+            item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+            ui->TX->setItem(row, column, item);
+        }
     }
 
-
+    //初次先执行一次更新
+    ui->updateParamter->click();
 }
 
 void MainWindow::Mslots_on_pushButton_clicked()
 {
     qDebug()<<"开始";
+    const int rowCount = static_cast<int>(std::size(kFuelFields));
+    QVector<double> values;
+    values.reserve(rowCount);
 
-    sendParamters sdp{};
-    sdp.left1fuel = ui->TX->item(0,0)->text().toUInt();
-    sdp.left2fuel = ui->TX->item(1,0)->text().toUInt();
-    sdp.right1fuel = ui->TX->item(2,0)->text().toUInt();
-    sdp.right2fuel = ui->TX->item(3,0)->text().toUInt();
-    sdp.leftfuel = ui->TX->item(4,0)->text().toUInt();
-    sdp.rightfuel = ui->TX->item(5,0)->text().toUInt();
-    sdp.allfuel = ui->TX->item(6,0)->text().toUInt();
-    sdp.fuelheat = ui->TX->item(7,0)->text().toUInt();
-    sdp.fuelheatcas = ui->TX->item(8,0)->text().toUInt();
-    // sdp.leftsendpress = ui->TX->item(9,0)->text().toUInt();
-    // sdp.rigthsendpress = ui->TX->item(2,0)->text().toUInt();
+    for (int row = 0; row < rowCount; ++row) {
+        const auto *item = ui->TX->item(row, 0);
+        bool ok = false;
+        const double value = item ? item->text().trimmed().toDouble(&ok) : 0.0;
 
-    emit Msignals_updateArray(sdp);
+        if (!ok) {
+            showNotice(QStringLiteral("第 %1 行「%2」请输入有效数字")
+                           .arg(row + 1)
+                           .arg(QString::fromUtf8(kFuelFields[row].name)));
+            return;
+        }
 
+        values.append(value);
+    }
+
+    emit Msignals_updateArray(values);
 }
 
 void MainWindow::Mslots_on_PStart_clicked()
@@ -306,8 +336,6 @@ void MainWindow::buildUi()
     // topBar->addWidget(m_saveChk);
     connect(m_openBtn,   &QPushButton::clicked, this, &MainWindow::Mslots_onOpenClicked);
     connect(clearBtn, &QPushButton::clicked, ui->plainTextEdit, &QPlainTextEdit::clear);
-
-
 }
 
 void MainWindow::Mslots_refreshPorts()
@@ -392,6 +420,25 @@ void MainWindow::Mslots_onStatisticsChanged(quint64 okFrames, quint64 rejectedFr
     statusBar()->showMessage(
         QStringLiteral("有效 %1 帧 | 拒绝 %2 帧 | 丢弃 %3 字节 | 最近: %4")
             .arg(okFrames).arg(rejectedFrames).arg(droppedBytes).arg(reason));
+}
+
+void MainWindow::Mslots_updateRawData(const QStringList &values)
+{
+
+    for (int row = 0; row < values.size(); ++row)
+    {
+        auto *item = ui->TX->item(row, 1);
+
+        if (!item)
+        {
+            item = new QTableWidgetItem;
+            item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+            ui->TX->setItem(row, 1, item);
+        }
+
+        item->setText(values.at(row));
+    }
+
 }
 
 

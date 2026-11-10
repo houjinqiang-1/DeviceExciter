@@ -27,7 +27,7 @@ public slots:
 
     void Wslots_UpdatePeriod(const int periUp);
     //更新参数
-    void Wslots_updateArray(const sendParamters &sdp);
+    void Wslots_updateArray(const QVector<double> &values);
 
     //MainWindow 发 openRequested 时打开串口
     void Wslots_start(const QString &portName, qint32 baudRate);
@@ -46,11 +46,17 @@ signals:
     void Wsignals_portStateChanged(bool open, const QString &portName);
     void Wsignals_statisticsChanged(quint64 okFrames, quint64 rejectedFrames,
                            quint64 droppedBytes, quint8 lastReason);
+    void WSignals_rawData(const QStringList &values);
 
+    //发送初始范围，分辨率，偏移量
+    void Wsignals_fuelFieldsReady(const QStringList &resolutions,
+                                  const QStringList &offsets,
+                                  const QStringList &ranges);
 public:
     void sendUpdate();
     void buildFrame(const QByteArray &bytea);
     void parseFrames();
+    void publishFuelFieldInfo();
 
 public:
     //枚举拒绝原因

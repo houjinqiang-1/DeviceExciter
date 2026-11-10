@@ -1,7 +1,10 @@
 #include "work/devicework.h"
 #include "icd.h"
+#include "icd.cpp"
 #include <QDebug>
 #include <QDateTime>
+#include <cmath>
+
 
 DeviceWork::DeviceWork(QObject *parent)
     : QObject{parent}
@@ -17,6 +20,7 @@ void DeviceWork::Wslots_init()
 
     // 串口对象不在这里创建，也不在这里打开
     // 端口由用户在界面上选择，点"打开串口"时再打开
+    publishFuelFieldInfo();
 }
 
 void DeviceWork::Wslots_startPeriod()
@@ -37,25 +41,89 @@ void DeviceWork::Wslots_UpdatePeriod(const int periUp)
     tw_timer->setInterval(periUp); //在运行中本身就可以暂停再运行
 }
 
-void DeviceWork::Wslots_updateArray(const sendParamters &udp)
+inline quint16 sumMod(QVector<qint32> rawValues)
 {
-    const QByteArray loadCopy(reinterpret_cast<const char *>(&udp),
-                             static_cast<int>(sizeof(sendParamters)));
-    sendArray = loadCopy;
-    for(int i=0;i< 60 - loadCopy.size();i++)
-    {
-        sendArray.append((char)(i));
-    }
-    QByteArray frameHeader;
-    QByteArray frameTail;
-    frameHeader.append(static_cast<char>(0xEB));
-    frameHeader.append(static_cast<char>(0x90));
-    frameHeader.append(static_cast<char>(0x42));
-    frameHeader.append(static_cast<char>(0x4F));
-    frameTail.append(static_cast<char>(0xFE));
-    frameTail.append(static_cast<char>(0xFE));
+    quint16 sum = 0;
 
-    sendArray = frameHeader + sendArray +frameTail;
+    for(int i = 2; i<rawValues.size()-2; i++)
+    {
+        sum += static_cast<quint8>(rawValues[i]);
+    }
+
+    return sum % 256;
+}
+
+void DeviceWork::Wslots_updateArray(const QVector<double> &values)
+{
+
+    fuelStruct fuel{};
+    QVector<qint32> rawValues;
+
+    const QString error = fillPacket(values, kFuelFields, fuel, rawValues);
+
+    if (!error.isEmpty()) {
+        qDebug()<<"fillPacket解析错误";
+        return;
+    }
+    // 当前燃油载荷按小端协议布局直接复制。
+    static_assert(Q_BYTE_ORDER == Q_LITTLE_ENDIAN);
+    static_assert(sizeof(fuelStruct) == 60);
+
+    const QByteArray payload(
+        reinterpret_cast<const char *>(&fuel),
+        static_cast<int>(sizeof(fuel)));
+
+    sendArray = QByteArray::fromHex("EB90424F")
+                + payload
+                + QByteArray::fromHex(
+                    QStringLiteral("%1").arg(static_cast<quint16>(sumMod(rawValues)),
+                             4, 16, QLatin1Char('0'))
+                        .toLatin1());
+
+    QStringList hexValues;
+    int byteOffset = 0;
+
+    for (int row = 0; row < rawValues.size(); ++row)
+    {
+        // 第19行之前跳过 reserve1。
+        if (row == 19)
+            ++byteOffset;
+
+        // 根据当前 fuel_sendParamters 的字段类型确定长度。
+        const bool singleByte =
+            row == 7 ||
+            row == 8 ||
+            (row >= 11 && row <= 14) ||
+            row >= 30;
+
+        const int byteSize = singleByte ? 1 : 2;
+
+        const QByteArray byArray = payload.mid(byteOffset,byteSize);
+        // qDebug() <<"byArray"<<byArray;
+        const QString hexValue = QString::fromUtf8(byArray.toHex(' ').toUpper());
+       //  qDebug() <<"hexValue"<<hexValue;
+        // 按小端内存布局读取原始值。
+        // quint16 raw = static_cast<quint8>(payload[byteOffset]);
+
+        // if (byteSize == 2)
+        // {
+        //     raw |= static_cast<quint16>(
+        //                static_cast<quint8>(payload[byteOffset + 1]))
+        //            << 8;
+        // }
+
+        // QString hex = QStringLiteral("%1")
+        //                   .arg(raw, byteSize * 2, 16, QLatin1Char('0'))
+        //                   .toUpper();
+
+        // if (byteSize == 2)
+        //     hex.insert(2, QLatin1Char(' '));
+        hexValues.append(hexValue);
+
+        byteOffset += byteSize;
+    }
+    // qDebug() <<"hexValues"<<hexValues;
+    emit WSignals_rawData(hexValues);
 }
 
 void DeviceWork::publishStats(bool force)
@@ -202,6 +270,29 @@ void DeviceWork::parseFrames()
         publishStats();
         emit Wsignals_frameReceived(QDateTime::currentDateTime(), payload);
     }
+}
+
+void DeviceWork::publishFuelFieldInfo()
+{
+    QStringList resolutions;
+    QStringList offsets;
+    QStringList ranges;
+
+    for (const PacketField &field : kFuelFields) {
+        const auto [minRaw, maxRaw] = packetRawRange(field);
+        const double first =
+            minRaw * field.resolution + field.engineeringOffset;
+        const double last =
+            maxRaw * field.resolution + field.engineeringOffset;
+
+        resolutions.append(QString::number(field.resolution, 'g', 15));
+        offsets.append(QString::number(field.engineeringOffset, 'g', 15));
+        ranges.append(QStringLiteral("[%1, %2]")
+                          .arg(QString::number(std::min(first, last), 'g', 15))
+                          .arg(QString::number(std::max(first, last), 'g', 15)));
+    }
+
+    emit Wsignals_fuelFieldsReady(resolutions, offsets, ranges);
 }
 
 void DeviceWork::Wslots_workPeriodStop()

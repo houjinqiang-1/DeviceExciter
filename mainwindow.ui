@@ -22,7 +22,7 @@
         <item>
          <layout class="QVBoxLayout" name="verticalLayout">
           <item>
-           <widget class="QPushButton" name="pushButton">
+           <widget class="QPushButton" name="updateParamter">
             <property name="text">
              <string>更新参数</string>
             </property>
